@@ -24,10 +24,10 @@ class dbController:
     def connect(self):
         self.conn = psycopg2.connect(
             database = 'course-hub-db-5540.coursehub',
-            user = 'magix022',
+            user = '',
             host = 'free-tier.gcp-us-central1.cockroachlabs.cloud',
             port = 26257,
-            password = 'dyYDcwElWi4tbbhjnkRobA'
+            password = ''
         )
 
     def cursor(self):
