@@ -100,13 +100,12 @@ def click(driver, elem):
 
 def get_schedule(email, passwd):
 	#MAIN
-
 	#driver = webdriver.Safari()
 	# driver = webdriver.Chrome('../../assets/chromedriver')
 	driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
 
 	driver.get('https://horizon.mcgill.ca/pban1/twbkwbis.P_WWWLogin')
-	time.sleep(3) #	wait for load
+	time.sleep(4) #	wait for load
 	Xpath = "//input[@id='mcg_un']"
 	username_txt = driver.find_element(By.XPATH, Xpath)
 	Xpath = "//input[@id='mcg_pw']"
@@ -125,6 +124,5 @@ def get_schedule(email, passwd):
 
 	time.sleep(5)
 	driver.close()
-
 	return courses
 

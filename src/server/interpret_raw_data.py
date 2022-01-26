@@ -5,9 +5,7 @@ import mycourses_scrape as ms
 from datetime import datetime, time, date, timedelta
 from dbController import *
 
-secrets = open("../../assets/secrets.txt").readlines()
-email = secrets[0][:-1]
-password = secrets[1]
+
 
 
 @dataclass(slots=True)
@@ -211,6 +209,7 @@ def get_course_information(user_dict):
 # dict must contain: {"firstname": "", "lastname": "", "studentid": "", "email": "", "password": ""}
 def get_event_information(user_dict, course_list, crn_dict):
     db = dbController()
+    email = user_dict['email']
 
     # try to add user if he isn't in the database already
     try:
@@ -250,7 +249,12 @@ def get_event_information(user_dict, course_list, crn_dict):
 
 if __name__ == "__main__":
     # example_dict = {"firstname": "John", "lastname": "Doe", "studentid": "123", "email": email, "password": password}
+
     # print(get_information(example_dict))
+    # secrets = open("../../assets/secrets.txt").readlines()
+    # email = secrets[0][:-1]
+    # password = secrets[1]
+
     print(
         get_event_information({"firstname": "", "lastname": "", "studentid": 123, "email": email, "password": password},
                               ["BIOL-568", "COMP-321", "COMP-424", "COMP-564", "MATH-324"],

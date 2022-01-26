@@ -1,27 +1,32 @@
 from dataclasses import dataclass, field, asdict
 import json
 import course_scrape as cs
-from datetime import datetime, time
+import mycourses_scrape as ms
+from datetime import datetime, time, date, timedelta
 from dbController import *
-from os import path
 
-__file_path = path.dirname(path.realpath(__file__))
-__secrets_path = __file_path+"/../../assets/secrets.txt"
 
-with open(__secrets_path, 'r') as f:
-    secrets = f.readlines()
-    email = secrets[0][:-1]
-    password = secrets[1]
+
+
+@dataclass(slots=True)
+class Events:
+    course: str = ""
+    type: str = ""
+    deadline: datetime.date = ""
+    length: timedelta = ""
+    title: str = ""
+    date: datetime.date = ""
+    text: str = ""
 
 
 @dataclass(slots=True)
 class Assignment:
-    course: str = ""
     name: str = ""
+    title: str = ""
+    type: str = ""
     dueDate: str = ""
     dueTime: str = ""
-    submissionPlatform: str = ""
-    submissionPlatformURL: str = ""
+    date: str = ""
     crn: int = 0
 
 
@@ -29,12 +34,12 @@ class Assignment:
 class Exam:
     weight: int = 0
     type: str = ""
-    date: str = ""
-    time: str = ""
+    date: datetime.datetime = datetime.datetime(2000, 1, 1)
+    time: datetime.time = datetime.time(0, 0, 0)
+    title: str = ""
     location: str = ""
-    durationHour: int = 0
-    durationMin: int = 0
-    crn: int = 0
+    duration: datetime.timedelta = datetime.timedelta(0, 0)
+    courseCRN: int = 0
 
 
 @dataclass(slots=True)
@@ -58,8 +63,12 @@ class Course:
     instructor: str = ""
     startTime: time = time
     endTime: time = time
+    events: list = field(default_factory=list)
     assignments: list = field(default_factory=list)
     exams: list = field(default_factory=list)
+
+    def add_event(self, event):
+        self.evens.append(event)
 
     def add_assignment(self, assignment):
         self.assignments.append(assignment)
@@ -130,52 +139,7 @@ def find_times(course, times):
         course.endTime = datetime.datetime.strptime(end_time, "%H:%M").time()
 
 
-# dict must contain: {"firstname": "", "lastname": "", "studentid": "", "email": "", "password": ""}
-# firstname, lastname and studentid are redundant -> only really need email to identify user
-def get_information(user_dict):
-    new_user = User()
-    new_user.firstname = user_dict["firstname"]
-    new_user.lastname = user_dict["lastname"]
-    new_user.studentid = user_dict["studentid"]
-    new_user.email = user_dict["email"]
-    db = dbController()
-
-    # try to add user if he isn't in the database already
-    try:
-        db.add_user(user_dict)
-    except psycopg2.errors.UniqueViolation:
-        pass
-
-    # try to see if there is already registered courses for this user in the database
-
-    registered_classes = db.getRegisteredClasses(user_dict["email"])
-
-    if len(registered_classes) == 0:
-        course_list = cs.get_schedule(user_dict["email"], user_dict["password"])
-        new_course_list = get_courses_information(course_list)
-
-        # add courses to the database if they are not already there
-        for course in new_course_list:
-            try:
-                db.add_course(course)
-                db.add_registeredClass(user_dict["email"], course["crn"])
-            except psycopg2.errors.UniqueViolation:
-                pass
-
-        registered_classes = db.getRegisteredClasses(user_dict["email"])
-
-    final_courses = []
-
-    for course in registered_classes:
-        id, subject, _, *other = course
-        final_courses.append(asdict(Course(*(id, subject, *other))))
-
-
-
-    return final_courses
-
-
-def get_courses_information(course_list):
+def course_information_helper(course_list):
     new_course_list = []
 
     for course in course_list:
@@ -204,7 +168,99 @@ def get_courses_information(course_list):
     return new_course_list
 
 
+# dict must contain: {"firstname": "", "lastname": "", "studentid": "", "email": "", "password": ""}
+# firstname, lastname and studentid are redundant -> only really need email to identify user
+def get_course_information(user_dict):
+    db = dbController()
+
+    # try to add user if he isn't in the database already
+    try:
+        db.add_user(user_dict)
+    except psycopg2.errors.UniqueViolation:
+        pass
+
+    # try to see if there is already registered courses for this user in the database
+
+    registered_classes = db.getRegisteredClasses(user_dict["email"])
+
+    if len(registered_classes) == 0:
+        course_list = cs.get_schedule(user_dict["email"], user_dict["password"])
+        new_course_list = course_information_helper(course_list)
+
+        # add courses to the database if they are not already there
+        for course in new_course_list:
+            try:
+                db.add_course(course)
+            except psycopg2.errors.UniqueViolation:
+                pass
+            try:
+                db.add_registeredClass(user_dict["email"], course["crn"])
+            except:
+                pass
+
+        registered_classes = db.getRegisteredClasses(user_dict["email"])
+
+    final_courses = []
+
+    for course in registered_classes:
+        id, subject, _, *other = course
+        final_courses.append(asdict(Course(*(id, subject, *other))))
+
+    return final_courses
+
+
+# dict must contain: {"firstname": "", "lastname": "", "studentid": "", "email": "", "password": ""}
+def get_event_information(user_dict, course_list, crn_dict):
+    db = dbController()
+    email = user_dict['email']
+
+    # try to add user if he isn't in the database already
+    try:
+        db.add_user(user_dict)
+    except psycopg2.errors.UniqueViolation:
+        pass
+
+    exams = db.get_user_exams(email)
+    if len(exams) == 0:
+
+        events = ms.get_events(course_list, email, password)
+
+        for event in events:
+            new_exam = Exam()
+            new_exam.course = event["subject"]
+            new_exam.type = event["type"]
+            new_exam.date = event["deadline"]
+            new_exam.location = event["title"]
+            new_exam.courseCRN = crn_dict[event["subject"]]
+
+            db.add_exam(asdict(new_exam))
+
+        exams = db.get_user_exams(email)
+
+    final_exams = []
+
+    for exam in exams:
+        final_exam = Exam()
+        final_exam.type = exam[3]
+        final_exam.date = exam[4]
+        final_exam.title = exam[6]
+        final_exam.courseCRN = exam[8]
+        final_exams.append(asdict(final_exam))
+
+    return final_exams
+
+
 if __name__ == "__main__":
-    pass
     # example_dict = {"firstname": "John", "lastname": "Doe", "studentid": "123", "email": email, "password": password}
-    # get_information(example_dict)
+
+    # print(get_information(example_dict))
+    # secrets = open("../../assets/secrets.txt").readlines()
+    # email = secrets[0][:-1]
+    # password = secrets[1]
+
+    print(
+        get_event_information({"firstname": "", "lastname": "", "studentid": 123, "email": email, "password": password},
+                              ["BIOL-568", "COMP-321", "COMP-424", "COMP-564", "MATH-324"],
+                              {"BIOL-568": 1878, "COMP-321": 2215, "COMP-424": 2225, "COMP-564": 2233,
+                               "MATH-324": 3406}))
+    # print(ms.get_events(["BIOL-568", "COMP-321", "COMP-424", "COMP-564", "MATH-324"], email, password))

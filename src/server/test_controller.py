@@ -131,19 +131,19 @@ def test_addDeleteUser():
 def test_addDeleteAssignment():
     controller = dbController()
     x = {
-        "name": "ass1",
-        "dueDate": datetime.date(2022,1,1),
+        "name": "assignment",
+        "dueDate": datetime.date(2022,1,24),
         "dueTime": datetime.time(12,00),
         "submissionPlatform": "ed",
         "submissionPlatformURL": "lkin",
-        "courseCRN": 1234
+        "courseCRN": 3367
     }
     id = controller.add_assignment(x)
     assert controller.getRowCount() == 1
-    controller.setRowCount(0)
+    #controller.setRowCount(0)
     controller.delete_assignment(id)
-    assert controller.getRowCount() == 1
-    controller.setRowCount(0)
+    #assert controller.getRowCount() == 1
+    #controller.setRowCount(0)
 
 def test_addDeleteExam():
     controller = dbController()
@@ -151,11 +151,11 @@ def test_addDeleteExam():
     x = {
         "weight": 30,
         "type": "quiz",
-        "date": datetime.date(2022, 1, 1),
+        "date": datetime.date(2022, 1, 12),
         "time": datetime.time(12,0),
         "location": "building",
         "duration": datetime.timedelta(hours=3),
-        "courseCRN": 2225
+        "courseCRN": 3411
     }
     id = controller.add_exam(x)
     assert controller.getRowCount() == 1

@@ -4,12 +4,33 @@ from PyQt5.QtGui import QColor, QIcon
 from PyQt5.QtCore import Qt, QSize
 import sys
 from itertools import chain, repeat
+from dataclasses import dataclass, field
 from enum import IntEnum
 from os import path
+from typing import Any
 from monthlyCalendar import calendarFrame
-from interpret_raw_data import get_information
+from interpret_raw_data import get_course_information, get_event_information
 from datetime import date
 from tasksalert import TasksView
+from login import Login
+
+'''nicholas.corneau@mail.mcgill.ca
+
+'''
+
+__DEBUG__ = True
+
+
+@dataclass(slots=True)
+class User:
+	email: str = ""
+	pw: str = ""
+	courses: list[dict[str, Any]] = field(default_factory=list)
+
+	@property
+	def user_dict(self):
+		return {"firstname": "", "lastname": "", 
+				"studentid": 123, "email": self.email, "password": self.pw}
 
 
 file_dir = path.dirname(path.realpath(__file__))
@@ -28,20 +49,24 @@ class EntryKind(IntEnum):
 DAYS_MAP = {day:i for i,day in enumerate(('M', 'T', 'W', 'R', 'F'))}
 
 
+def getCRNDict(courses):
+	crn_map = {}
+	for course in courses:
+		course_name = course['subject']+"-"+course["courseNb"]
+		crn_map[course_name] = int(course["crn"])
+	return crn_map
+
+
 class MainTabs(QTabWidget):
-	def __init__(self, email, master=None):
+	def __init__(self, user, master=None):
 		QTabWidget.__init__(self, master)
+		self.user = user
 		self.insertCalendar()
-		self.insertTasks(TasksView())
+		self.tasks = TasksView()
+		self.insertTasks(self.tasks)
 		self.setMinimumWidth(1280)
 		self.setMinimumHeight(720)
-		# setTabIcon(0, *calIcon);
-
-		# self.setStyleSheet(
-		# 	" background-color: white ")
-		# # 	# " QWidget { background-color: white; }"
-		# # 	)
-		self.insertMonthly(email)
+		self.insertMonthly()
 		self.tabBar().setIconSize(QSize(70,70))
 		self.setCornerIcon()
 
@@ -51,15 +76,16 @@ class MainTabs(QTabWidget):
 			self.setCurrentIndex(i)
 		self.setCurrentIndex(0)
 
+	def requestNewEvents(self):
+		events = get_event_information(
+			self.user.user_dict, (courses := self.user.courses), getCRNDict(courses)
+			)
+		for event in events:
+			self.tasks.addTask(event)
+
+
 	def insertCalendar(self):
 		self.calendar = ScheduleTab()
-		# wrapper = QWidget()
-		# layout = QHBoxLayout()
-
-		# layout.addWidget(self.calendar)
-		# wrapper.setLayout(layout)
-		# # wrapper.setStyleSheet(" background-color: white ")
-		# self.addTab(wrapper, "")
 		calIcon = QIcon()
 		print(assets_dir+"calendar_grayed.png")
 		calIcon.addFile(assets_dir+"calendar_grayed.png", QSize(40, 40), QIcon.Normal, QIcon.Off);
@@ -76,11 +102,11 @@ class MainTabs(QTabWidget):
 		self.addTab(widget, taskIcon, "")
 
 
-	def insertMonthly(self, email):
+	def insertMonthly(self):
 		taskIcon = QIcon()
 		taskIcon.addFile(assets_dir+"tasks_unselected.png", QSize(10, 10), QIcon.Normal, QIcon.Off);
 		taskIcon.addFile(assets_dir+"tasks_subtle_glow.png", QSize(10, 10), QIcon.Normal, QIcon.On);
-		calFrame = calendarFrame(email)
+		calFrame = calendarFrame(self.user.email)
 		self.addTab(calFrame.getWidget(), taskIcon, "")
 
 	def setCornerIcon(self):
@@ -168,38 +194,8 @@ class ScheduleTab(QTableWidget):
 		self.setStyleSheet(" gridline-color: #FFF9F9 ");
 
 
-	def __addCourse(self, _, *args):
-		print(args)
-		print(*args)
-		# course_id, subject, IGNORE, num, title, crn, semester, kind, credits, \
-		# 	year, section, location, *days, instructor, start, end = args
-		course_id, subject, num, title, crn, semester, kind, credits, \
-			year, section, location, *days, instructor, start, end = args.items()
-		print(args.items())
-		courseItem = Entry(title, EntryKind.COURSE)
-		data = dict(filter(
-			lambda tup: tup[0] not in {'self', 'args', 'IGNORE'},
-			locals().items()))
-		courseItem.setInfo(data)
-		# for attr_n, attr_v in filter(
-		# 	lambda tup: tup[0] not in {'self', 'args', 'IGNORE'},
-		# 	locals().items()):
-		# 	setattr(courseItem, attr_n, attr_v)
-		for day_num, in_day in enumerate(days):
-			if in_day:
-				self.setItem(start, day_num, courseItem.copy())
-				self.setSpan(start, day_num, end-start, 1)
-
-
-	def addCourse(self, course):
-		# course_id, subject, num, title, crn, semester, kind, credits, \
-		# 	year, section, location, *days, instructor, start, end = args.items()
-
-		
-		# data = dict(filter(
-		# 	lambda tup: tup[0] not in {'self', 'args', 'IGNORE'},
-		# 	locals().items()))
-
+	def addCourse(self, user, course):
+		user.courses.append(course)
 		course_entry = Entry(course['title'], EntryKind.COURSE)
 		course_entry.setInfo(course)
 		weekdays = ('monday', 'tuesday', 'wednesday', 'thursday', 'friday')
@@ -216,23 +212,15 @@ class ScheduleTab(QTableWidget):
 				times[i] = int(h)*2 - 1
 
 		start, end = times
-		# h, m = start.split(':')
-		# start = int(h) if 
-		# start = int(start.split(':')[0])
-		# end = int(end.split(':')[0])
-
-		# for attr_n, attr_v in filter(
-		# 	lambda tup: tup[0] not in {'self', 'args', 'IGNORE'},
-		# 	locals().items()):
-		# 	setattr(courseItem, attr_n, attr_v)
-		print(f"{start=},{end=},{end-start=}")
+		# print(f"{start=},{end=},{end-start=}")
 		for day_num, in_day in enumerate(days):
 			if in_day:
 				self.setItem(start+2, day_num+1, course_entry.copy())
 				self.setSpan(start+2, day_num+1, end-start, 1)
 
-
+	# Deprecated function
 	def testAdd(self, start, dur, name, days):
+		assert not __DEBUG__
 		days_bools = list(repeat(False, 5))
 		for d in days:
 			days_bools[DAYS_MAP[d]] = True
@@ -242,18 +230,9 @@ class ScheduleTab(QTableWidget):
 		self.addCourse(*formatted_args)
 
 
-from login import Login
 
-class Saver:
-	def __init__(self):
-		self.email, self.pw = '', ''
-
-login_save = Saver()
-app = QApplication(sys.argv)
-# login_dialog = Login(login_save)
-# login_dialog.getLogin()
-
-app.setStyleSheet(
+def stylizeApplication(app):
+	app.setStyleSheet(
 	" QTabBar::tab" 
 	"{"
 	" border: none; "
@@ -261,7 +240,6 @@ app.setStyleSheet(
 	" margin-left: 2px; "
 	" margin-right: 2px; "
 	' margin-bottom: 5px; '
-	# " margin-top: 1 px; "
 	"}"
 	"QTabWidget" 
 	"{"
@@ -271,39 +249,30 @@ app.setStyleSheet(
 	" background-color: white; "
 	" }"
 	)
-# x = ScheduleTab()
-# x.testAdd(8, 3, "MATH 340", "MWF")
-# x.show()
-# pw = input()
 
-user_dict = {
-	"firstname":None,
-	"lastname":None,
-	"studentid":None,
-	"email": "nicholas.corneau@mail.mcgill.ca",
-	"password": "xuyuehl"
-}
-x = MainTabs(user_dict['email'])
+
+
+user = User()
+app = QApplication(sys.argv)
+stylizeApplication(app)
+
+login_dialog = Login(user)
+login_dialog.getLogin()
+
+
+x = MainTabs(user)
 cal = x.calendar
-# email, pw = user_dict['email'],user_dict['password']
 # user_dict = {
 # 	"firstname":None,
 # 	"lastname":None,
 # 	"studentid":None,
-# 	"email": login_save.email,
-# 	"password": login_save.pw
+# 	"email": user.email,
+# 	"password": user.pw
 # }
 
-courses = get_information(user_dict)
-# print(iter(courses))
-# print(courses)
-# _ = input()
+courses = get_course_information(user.user_dict)
 for course in courses:
-# 	# print(course)
-# 	# _ = input()
-	cal.addCourse(course)
-# x.calendar.testAdd(8, 3, "MATH 340", "MWF")
-# x.calendar.testAdd(11, 2, "COMP", "TR")
+	cal.addCourse(user, course)
 x.fixTabIcons()
 x.show()
 x.fixTabIcons()

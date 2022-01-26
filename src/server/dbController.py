@@ -120,6 +120,10 @@ class dbController:
     def add_user(self, disc): #NEED TO HANDLE NON_UNIQUE EMAIL IN APP
         if(self.conn.closed != 0):
             self.connect()
+
+        if(len(disc["email"])):
+            self.conn.rollback()
+            raise CourseHubException("Invalid email")
         
         with self.conn.cursor() as cur:
             try:

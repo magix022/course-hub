@@ -61,7 +61,7 @@ class calendarFrame():
                 self.date = None
 
 
-            print(self.date)
+            #print(self.date)
             self.setSizeHint(QSize(500, 100))
             self.setBackground(QColor(128,128,128,100))
             text = calendarFrame.classExamDict[exam[8]] + " " + exam[3] + monthString
@@ -74,14 +74,14 @@ class calendarFrame():
             super().__init__(parent)
             self.calendarFrame = calendarFrame
             
-        def paintCell(self, painter, rect, date):
-            super().paintCell(painter, rect,date)
-            for exam in self.calendarFrame.assignmentsList:
-                print(exam[4])
-                qdate = QDate.fromString(exam[4])
-                if date in qdate:
-                    painter.setBrush(Qt.red)
-                    painter.drawEllipse(rect.topLeft() + QPoint(12,7),3,3)
+        # def paintCell(self, painter, rect, date):
+        #     super().paintCell(painter, rect,date)
+        #     for exam in self.calendarFrame.assignmentsList:
+        #         #print(exam[4])
+        #         #qdate = QDate.fromString(exam[4])
+        #         if date in qdate:
+        #             painter.setBrush(Qt.red)
+        #             painter.drawEllipse(rect.topLeft() + QPoint(12,7),3,3)
 
 
 

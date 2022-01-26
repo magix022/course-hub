@@ -8,14 +8,6 @@ from enum import IntEnum
 from os import path
 
 
-def getCRNDict(courses):
-	crn_map = {}
-	for course in courses:
-		course_name = course['subject']+"-"+course["courseNb"]
-		crn_map[course_name] = int(course["crn"])
-	return crn_map
-
-
 
 class TasksView(QWidget):
 	def __init__(self, master=None):
@@ -37,6 +29,10 @@ class TasksView(QWidget):
 
 	def getLayout(self):
 		return self.layout
+
+	def addTask(self, event):
+		item = NewTask(event)
+		self.addItem(item)
 
 
 class NewList(QListWidget):
